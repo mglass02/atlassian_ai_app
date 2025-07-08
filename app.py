@@ -13,7 +13,7 @@ question = st.text_input("💬 Ask your question:")
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 JIRA_BASE_URL = st.secrets["JIRA_BASE_URL"]
 JIRA_EMAIL = st.secrets["JIRA_EMAIL"]
-ATLASSIAN_API_TOKEN = st.secrets["ATLASSIAN_API_TOKEN"]
+ATLASSIAN_API_TOKEN = st.secrets["ATLASSIAN_API_KEY"]
 JIRA_PROJECT_KEY = st.secrets["JIRA_PROJECT_KEY"]
 
 # Get Jira issues
