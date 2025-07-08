@@ -23,7 +23,7 @@ def get_jira_issues():
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
-    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+    auth = (JIRA_EMAIL, ATLASSIAN_API_TOKEN)
     jql = f"project = {JIRA_PROJECT_KEY} ORDER BY priority DESC, updated DESC"
     params = {
         "jql": jql,
