@@ -70,10 +70,10 @@ if question:
     else:
         formatted_issues = format_issues(issues)
         prompt = (
-            f"Here are the current Jira issues from project {JIRA_PROJECT_KEY}:\n\n"
+            f"You are an expert Jira project assistant. Here are the current issues in project {JIRA_PROJECT_KEY}:\n\n"
             f"{formatted_issues}\n\n"
-            f"User asked: '{question}'\n\n"
-            "Please respond with helpful, prioritized guidance like an expert project assistant."
+            f"The user asked: \"{question}\"\n"
+            f"Use the issue list only if it's helpful to answer the question. Be concise, helpful, and respond naturally."
         )
         response = ask_gemini(prompt)
         st.markdown("### 🤖 Response:")
