@@ -49,7 +49,7 @@ def format_issues(issues):
     return "\n".join(formatted)
 
 def ask_gemini(prompt):
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent"
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": GEMINI_API_KEY
