@@ -4,7 +4,7 @@ import json
 import re
 
 st.set_page_config(page_title="Gemini + Jira Assistant", layout="centered")
-st.title("🤖 Gemini AI Jira Assistant")
+st.title("🤖 AI Jira Assistant")
 st.caption("Ask anything about your Jira project")
 
 # User input
