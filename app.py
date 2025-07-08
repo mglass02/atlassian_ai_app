@@ -3,21 +3,52 @@ import requests
 import json
 import re
 
+# ----------------------
+# PAGE CONFIG & HEADER
+# ----------------------
 st.set_page_config(page_title="Gemini + Jira Assistant", layout="centered")
-st.title("🤖 AI Jira Assistant")
-st.caption("Ask anything about your Jira project")
 
-# User input
-question = st.text_input("💬 Ask your question:")
+st.markdown("""
+    <style>
+        .main { font-family: "Segoe UI", sans-serif; }
+        h1 { font-size: 2.2rem; margin-bottom: 0.2rem; }
+        .message-container {
+            background-color: #f5f5f5;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        .user-msg {
+            color: black;
+            font-weight: 600;
+        }
+        .bot-msg {
+            color: #444;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# Config
+st.title("🤖 Gemini Jira Assistant")
+st.caption("Chat naturally with your Jira project using AI.")
+
+# ----------------------
+# SECRETS / CONFIG
+# ----------------------
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 JIRA_BASE_URL = st.secrets["JIRA_BASE_URL"]
 JIRA_EMAIL = st.secrets["JIRA_EMAIL"]
 ATLASSIAN_API_TOKEN = st.secrets["ATLASSIAN_API_KEY"]
 JIRA_PROJECT_KEY = st.secrets["JIRA_PROJECT_KEY"]
 
-# Fetch ALL Jira issues with extended fields
+# ----------------------
+# SESSION STATE INIT
+# ----------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# ----------------------
+# FETCH JIRA ISSUES
+# ----------------------
 def get_all_jira_issues():
     url = f"{JIRA_BASE_URL}/rest/api/3/search"
     headers = {
@@ -51,12 +82,13 @@ def get_all_jira_issues():
 
     return all_issues
 
-# Sort by numerical prefix in summary (e.g. 1.2)
+# ----------------------
+# FORMAT JIRA ISSUES
+# ----------------------
 def extract_number(summary):
     match = re.match(r"([\d.]+)", summary)
     return [int(n) for n in match.group(1).split('.')] if match else [999]
 
-# Format issues into a rich, multi-field string
 def format_issues(issues):
     issues_sorted = sorted(issues, key=lambda issue: extract_number(issue["fields"].get("summary", "")))
     formatted = []
@@ -85,7 +117,9 @@ def format_issues(issues):
 
     return "\n\n".join(formatted)
 
-# Ask Gemini
+# ----------------------
+# GEMINI CALL
+# ----------------------
 def ask_gemini(prompt):
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     headers = {
@@ -99,21 +133,43 @@ def ask_gemini(prompt):
     try:
         return res.json()['candidates'][0]['content']['parts'][0]['text']
     except Exception:
-        return f"Error: {res.text}"
+        return f"❌ Error: {res.text}"
 
-# Main interaction
-if question:
-    issues = get_all_jira_issues()
-    if not issues:
-        st.error("❌ Couldn't fetch Jira issues. Check your API keys or project key.")
-    else:
-        formatted_issues = format_issues(issues)
-        prompt = (
-            f"You are a project assistant with full access to the Jira project {JIRA_PROJECT_KEY}.\n\n"
-            f"Here is the full list of issues with details:\n\n{formatted_issues}\n\n"
-            f"The user asked: \"{question}\"\n\n"
-            "Respond naturally. If the user asked for epics, due dates, missing fields, or classifications, use the issue data above."
-        )
-        response = ask_gemini(prompt)
-        st.markdown("### 🤖 Response:")
-        st.info(response)
+# ----------------------
+# DISPLAY CHAT HISTORY
+# ----------------------
+for msg in st.session_state.messages:
+    with st.container():
+        st.markdown(f"""
+            <div class="message-container">
+                <div class="user-msg">🧑‍💼 You: {msg['user']}</div><br>
+                <div class="bot-msg">🤖 Gemini: {msg['bot']}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+# ----------------------
+# USER INPUT
+# ----------------------
+with st.form(key="chat_form", clear_on_submit=True):
+    user_input = st.text_input("💬 Ask a question", placeholder="e.g., What are the overdue tasks?")
+    submitted = st.form_submit_button("Send")
+
+# ----------------------
+# HANDLE RESPONSE
+# ----------------------
+if submitted and user_input:
+    with st.spinner("🤔 Gemini is thinking..."):
+        issues = get_all_jira_issues()
+        if not issues:
+            st.error("❌ Couldn’t fetch Jira issues.")
+        else:
+            formatted_issues = format_issues(issues)
+            full_prompt = (
+                f"You are a project assistant with access to Jira project {JIRA_PROJECT_KEY}.\n\n"
+                f"Here are the Jira issues:\n\n{formatted_issues}\n\n"
+                f"The user asked: \"{user_input}\"\n\n"
+                f"Give a clear and human-like response based only on the issue data above."
+            )
+            answer = ask_gemini(full_prompt)
+            st.session_state.messages.append({"user": user_input, "bot": answer})
+            st.rerun()  # Refresh UI to show new chat
