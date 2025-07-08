@@ -136,6 +136,35 @@ def ask_gemini(prompt):
         return f"❌ Error: {res.text}"
 
 # ----------------------
+# ADD DESCRIPTION HELPERS
+# ----------------------
+def generate_description_for_issue(summary, issue_type, labels):
+    label_text = ", ".join(labels) if labels else "no labels"
+    prompt = (
+        f"Generate a helpful Jira description for the following issue:\n\n"
+        f"Title: {summary}\n"
+        f"Type: {issue_type}\n"
+        f"Labels: {label_text}\n\n"
+        f"Keep it clear and professional."
+    )
+    return ask_gemini(prompt)
+
+def update_jira_description(issue_key, new_description):
+    url = f"{JIRA_BASE_URL}/rest/api/3/issue/{issue_key}"
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    auth = (JIRA_EMAIL, ATLASSIAN_API_TOKEN)
+    payload = {
+        "fields": {
+            "description": new_description
+        }
+    }
+    response = requests.put(url, headers=headers, auth=auth, json=payload)
+    return response.status_code == 204
+
+# ----------------------
 # DISPLAY CHAT HISTORY
 # ----------------------
 for msg in st.session_state.messages:
@@ -163,13 +192,38 @@ if submitted and user_input:
         if not issues:
             st.error("❌ Couldn’t fetch Jira issues.")
         else:
-            formatted_issues = format_issues(issues)
-            full_prompt = (
-                f"You are a project assistant with access to Jira project {JIRA_PROJECT_KEY}.\n\n"
-                f"Here are the Jira issues:\n\n{formatted_issues}\n\n"
-                f"The user asked: \"{user_input}\"\n\n"
-                f"Give a clear and human-like response based only on the issue data above."
-            )
-            answer = ask_gemini(full_prompt)
-            st.session_state.messages.append({"user": user_input, "bot": answer})
-            st.rerun()  # Refresh UI to show new chat
+            # Special command: Add descriptions to all missing issues
+            if user_input.lower().strip() in ["add descriptions", "add descriptions to all missing issues"]:
+                updated = []
+                for issue in issues:
+                    if not issue["fields"].get("description"):
+                        key = issue["key"]
+                        summary = issue["fields"].get("summary", "")
+                        issue_type = issue["fields"]["issuetype"]["name"]
+                        labels = issue["fields"].get("labels", [])
+                        new_description = generate_description_for_issue(summary, issue_type, labels)
+                        success = update_jira_description(key, new_description)
+                        if success:
+                            updated.append(key)
+
+                result = (
+                    f"✅ Added descriptions to {len(updated)} issue(s):\n" +
+                    "\n".join(f"- {k}" for k in updated)
+                    if updated else
+                    "🎉 All issues already have descriptions!"
+                )
+                st.session_state.messages.append({"user": user_input, "bot": result})
+                st.rerun()
+
+            # Normal chat flow
+            else:
+                formatted_issues = format_issues(issues)
+                full_prompt = (
+                    f"You are a project assistant with access to Jira project {JIRA_PROJECT_KEY}.\n\n"
+                    f"Here are the Jira issues:\n\n{formatted_issues}\n\n"
+                    f"The user asked: \"{user_input}\"\n\n"
+                    f"Give a clear and human-like response based only on the issue data above."
+                )
+                answer = ask_gemini(full_prompt)
+                st.session_state.messages.append({"user": user_input, "bot": answer})
+                st.rerun()
